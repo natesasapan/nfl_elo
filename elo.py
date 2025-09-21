@@ -1,6 +1,8 @@
 import pandas as pd
 import math
 
+
+# Function to calculate probability of a team winning based on differences in their elo
 def probability(rating1, rating2):
     return 1.0 / (1 + math.pow(10, (rating1 - rating2) / 400))
 
@@ -45,7 +47,7 @@ df.pop('elo_prob1')
 df = df.drop(df[df.season < 1966].index)
 
 # Get all the team names and create a dictionary
-# Start all teams at 2000
+# Start all teams at 2000 rating
 teams = df['team1'].unique()
 elodict = {}
 for team in teams:
@@ -56,34 +58,68 @@ yearlydict = {}
 # Set the current year to 1965
 currentyear = 1965
 
+# Set a variable for min/max elo during calculations
+max_elo, min_elo = 0,10000
+max_team_name, min_team_name = '',''
+max_team_season, min_team_season = '',''
+max_team_date, min_team_date = '',''
+date = ''
 
+# Iterate through all rows in the Dataframe to calculate elo for each team, game by game
 for index, row in df.iterrows():
 
-    if (row['season'] > currentyear):
+    # Every time the year changes, add all teams current elo ratings to the yearly dictionary 
+    if (row['season'] > currentyear or currentyear == 2020):
         tempdict = elodict.copy()
         yearlydict[currentyear] = tempdict
         currentyear += 1
 
+    # Get current teams names, date, and ratings
     team1name = row['team1']
     team2name = row['team2']
-
+    date = row['date']
     team1elo = elodict.get(team1name)
     team2elo = elodict.get(team2name)
+
+    # Get outcome of game, 
     outcome = row['result1']
     playoff = row['playoff']
     neutral = row['neutral']
 
+    # Get elo ratings after calculations
     team1elo, team2elo = elo_rating(team1elo, team2elo, outcome, playoff, neutral)
 
+    # Update max/min elos if they exist
+    if team1elo > max_elo:
+        max_elo = team1elo
+        max_team_name = team1name
+        max_team_season = row['season']
+        max_team_date = date
+    if team2elo > max_elo:
+        max_elo = team2elo
+        max_team_name = team2name
+        max_team_season = row['season']
+        max_team_date = date
+    if team1elo < min_elo:
+        min_elo = team1elo
+        min_team_name = team1name
+        min_team_season = row['season']
+        min_team_date = date
+    if team2elo < min_elo:
+        min_elo = team2elo
+        min_team_name = team2name
+        min_team_season = row['season']
+        min_team_date = date
+
+    # Update elo ratings in dictionary for each team
     elodict.update({team1name: team1elo})
     elodict.update({team2name: team2elo})
 
-    # print(f"{team1name}'s elo is now {team1elo}")
-    # print(f"{team2name}'s elo is now {team2elo}")
-    # print("")
+# Print the max/min elo reached by a team
+print(f'The maximum elo reached ({max_elo}) during calculations was by {max_team_name} on {max_team_date} in {max_team_season}.')
+print(f'The minimum elo reached ({min_elo}) during calculations was by {min_team_name} on {min_team_date} in {min_team_season}.')
 
-print(elodict)
-
+# Save the yearly results to a new csv file
 yearbyyear = pd.DataFrame(yearlydict)
 yearbyyear.index.name="Year"
 yearbyyear.to_csv('nfl_elo_by_year.csv')
